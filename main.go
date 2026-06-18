@@ -38,11 +38,15 @@ type apiResponse struct {
 	} `json:"data"`
 }
 
-// resultado por username, na ordem de entrada.
+// result per username, in input order.
 type result struct {
 	Username string
-	UserID   int64 // 0 = nao encontrado
+	UserID   int64 // 0 = not found
 }
+
+// stdin is a single shared scanner. Multiple bufio.Scanner on os.Stdin would
+// lose buffered lines to read-ahead, so the whole program reuses this one.
+var stdin = bufio.NewScanner(os.Stdin)
 
 func main() {
 	usernames := readUsernames()
@@ -51,14 +55,29 @@ func main() {
 		return
 	}
 
-	results, err := lookup(usernames)
-	if err != nil {
-		fmt.Println("Lookup error:", err)
-		os.Exit(1)
-	}
+	for {
+		results, err := lookup(usernames)
+		if err != nil {
+			fmt.Println("Lookup error:", err)
+			os.Exit(1)
+		}
 
-	printResults(results)
-	interactiveMenu(results)
+		printResults(results)
+		if !interactiveMenu(results) {
+			return // user quit
+		}
+		// user chose "new": read another batch of usernames and loop
+		usernames = promptUsernames()
+		if len(usernames) == 0 {
+			return
+		}
+	}
+}
+
+// promptUsernames: reads a fresh batch of usernames from stdin (one per line).
+func promptUsernames() []string {
+	fmt.Println("\nPaste new usernames (one per line). Empty line to finish:")
+	return readLines()
 }
 
 // readUsernames: reads from arguments OR stdin (one per line, stops on empty line).
@@ -67,10 +86,14 @@ func readUsernames() []string {
 		return cleanList(os.Args[1:])
 	}
 	fmt.Println("Paste usernames (one per line). Empty line to finish:")
+	return readLines()
+}
+
+// readLines: reads lines from the shared stdin scanner until an empty line/EOF.
+func readLines() []string {
 	var raw []string
-	sc := bufio.NewScanner(os.Stdin)
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
+	for stdin.Scan() {
+		line := strings.TrimSpace(stdin.Text())
 		if line == "" {
 			break
 		}
@@ -149,18 +172,23 @@ func printResults(results []result) {
 	fmt.Println()
 }
 
-func interactiveMenu(results []result) {
-	fmt.Println("Commands: [all] copy all | [number] copy one | [q] quit")
-	sc := bufio.NewScanner(os.Stdin)
+// interactiveMenu: returns true if the user wants to enter a new batch of usernames,
+// false if they want to quit.
+func interactiveMenu(results []result) bool {
+	fmt.Println("Commands: [all] copy all | [number] copy one | [new] add more usernames | [q] quit")
 	for {
 		fmt.Print("> ")
-		if !sc.Scan() {
-			return
+		if !stdin.Scan() {
+			return false
 		}
-		cmd := strings.TrimSpace(strings.ToLower(sc.Text()))
+		cmd := strings.TrimSpace(strings.ToLower(stdin.Text()))
 		switch {
-		case cmd == "q" || cmd == "":
-			return
+		case cmd == "":
+			continue
+		case cmd == "q":
+			return false
+		case cmd == "new" || cmd == "n":
+			return true // signal caller to read a new batch
 		case cmd == "all":
 			var b strings.Builder
 			for _, r := range results {

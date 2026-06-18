@@ -22,10 +22,13 @@ Open the `.exe` and pick one of these:
 [3] userid -> Dreamydin0Pixel = 10351452559
 ```
 
+All usernames are sent in a **single API request** (batches of 100), so rate limits are not an issue for normal use.
+
 ### Menu commands
 
 - `all` — copy **all** results to the clipboard
 - `1`, `2`, `3`... — copy that line's userID
+- `new` — look up another batch of usernames (no need to restart)
 - `q` — quit
 
 ## Build from source
