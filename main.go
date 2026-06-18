@@ -49,34 +49,51 @@ type result struct {
 var stdin = bufio.NewScanner(os.Stdin)
 
 func main() {
+	fmt.Println("========================================")
+	fmt.Println("  🎮 Roblox Username → UserID")
+	fmt.Println("========================================")
 	usernames := readUsernames()
 	if len(usernames) == 0 {
-		fmt.Println("No usernames provided.")
+		fmt.Println("⚠️  No usernames provided.")
+		pause()
 		return
 	}
 
 	for {
+		fmt.Println("\n🔎 Looking up...")
 		results, err := lookup(usernames)
 		if err != nil {
-			fmt.Println("Lookup error:", err)
+			fmt.Println("⚠️  Lookup error:", err, "\n(Check your internet connection and try again.)")
+			pause()
 			os.Exit(1)
 		}
 
 		printResults(results)
 		if !interactiveMenu(results) {
+			fmt.Println("👋 Bye!")
+			pause()
 			return // user quit
 		}
 		// user chose "new": read another batch of usernames and loop
 		usernames = promptUsernames()
 		if len(usernames) == 0 {
+			fmt.Println("👋 Bye!")
+			pause()
 			return
 		}
 	}
 }
 
+// pause: keeps the window open so a non-technical user can read the message
+// when running the .exe by double-clicking.
+func pause() {
+	fmt.Print("\nPress Enter to close...")
+	stdin.Scan()
+}
+
 // promptUsernames: reads a fresh batch of usernames from stdin (one per line).
 func promptUsernames() []string {
-	fmt.Println("\nPaste new usernames (one per line). Empty line to finish:")
+	fmt.Println("\n📋 Paste more usernames (one per line). Empty line when done. 👇")
 	return readLines()
 }
 
@@ -85,7 +102,8 @@ func readUsernames() []string {
 	if len(os.Args) > 1 {
 		return cleanList(os.Args[1:])
 	}
-	fmt.Println("Paste usernames (one per line). Empty line to finish:")
+	fmt.Println("\n📋 Paste the usernames below (one per line).")
+	fmt.Println("   When you're done, press Enter on an empty line. 👇")
 	return readLines()
 }
 
@@ -161,23 +179,27 @@ func lookup(usernames []string) ([]result, error) {
 }
 
 func printResults(results []result) {
-	fmt.Println()
+	fmt.Println("\n----------------------------------------")
 	for i, r := range results {
-		val := "NOT FOUND"
 		if r.UserID != 0 {
-			val = strconv.FormatInt(r.UserID, 10)
+			fmt.Printf("[%d] ✅ userid -> %s = %d\n", i+1, r.Username, r.UserID)
+		} else {
+			fmt.Printf("[%d] ❌ userid -> %s = NOT FOUND\n", i+1, r.Username)
 		}
-		fmt.Printf("[%d] userid -> %s = %s\n", i+1, r.Username, val)
 	}
-	fmt.Println()
+	fmt.Println("----------------------------------------")
 }
 
 // interactiveMenu: returns true if the user wants to enter a new batch of usernames,
 // false if they want to quit.
 func interactiveMenu(results []result) bool {
-	fmt.Println("Commands: [all] copy all | [number] copy one | [new] add more usernames | [q] quit")
+	fmt.Println("What do you want to do? Type one option and press Enter:")
+	fmt.Println("  📋 all  → copy ALL results")
+	fmt.Println("  🔢 1    → copy just one (type its number)")
+	fmt.Println("  ➕ new  → look up more usernames")
+	fmt.Println("  🚪 q    → quit")
 	for {
-		fmt.Print("> ")
+		fmt.Print("👉 ")
 		if !stdin.Scan() {
 			return false
 		}
@@ -199,20 +221,20 @@ func interactiveMenu(results []result) bool {
 				}
 			}
 			copyClipboard(b.String())
-			fmt.Println("Copied: all results.")
+			fmt.Println("✅ Copied ALL results to clipboard! Just paste (Ctrl+V).")
 		default:
 			n, err := strconv.Atoi(cmd)
 			if err != nil || n < 1 || n > len(results) {
-				fmt.Println("Invalid command.")
+				fmt.Println("❓ I didn't get that. Type: all, a number, new, or q.")
 				continue
 			}
 			r := results[n-1]
 			if r.UserID == 0 {
-				fmt.Println("That username was not found.")
+				fmt.Println("❌ That username was not found.")
 				continue
 			}
 			copyClipboard(strconv.FormatInt(r.UserID, 10))
-			fmt.Printf("Copied: %d (%s)\n", r.UserID, r.Username)
+			fmt.Printf("✅ Copied: %d (%s) — paste with Ctrl+V.\n", r.UserID, r.Username)
 		}
 	}
 }
